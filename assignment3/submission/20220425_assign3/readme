@@ -1,0 +1,12 @@
+Name: Wang Jonghyuk
+Student ID: 20220425
+
+Implemented hash table expansion inside RegisterCustomer()
+
+customer_manager using array to store user info is easy and simple to implement, but struggles when you try to search for a particuler element
+as you have to linearly iterate through every element until you find it. This results in poor performance when the array has large amounts of
+elements. On the other hand, customer_manager using hash tables excels at searching and often provides constant time O(1) when looking up for
+some element. Similarly, inserting and deleting elements are also fast as it only needs to access one index. However, all the advantages above
+are only valid if the hash function doesn't produce many collisions. If it does, hash table becomes inefficient. Therefore, using appropriate 
+hash function is very important. Also, implementation of hash table can be complex compared to arrays.
+

@@ -1,0 +1,10 @@
+Name: Wang Jonghyuk
+Student ID: 20220425
+
+Is it possible for StrCopy to call assert to verify that the destination memory area specified by the caller is large enough? Explain.
+
+No. I don't think so. As StrCopy recieves an char pointer pcDest as a parameter, we cannot use sizeof() to compare the memory area, specified 
+by the two strings, inside the StrCopy function. Doing this will result in undefined behavior. We would probably have to check the destination
+memory area is big enough before calling StrCopy function.
+
+Extra Credit: I used only pointer notation to implement string functions.  
