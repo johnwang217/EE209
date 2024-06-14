@@ -117,3 +117,62 @@ dumpLex(DynArray_T oTokens) {
     }
   }
 }
+
+struct Command*
+buildCommand(DynArray_T oTokens) {
+  struct Command *input = calloc(1, sizeof(struct Command));
+  input->arguments = calloc(1, (oTokens->iLength + 1)*sizeof(char *));
+  input->pipes = calloc(1, (oTokens->iLength + 1)*sizeof(char *));
+  // add error handling "not enough memory" return NULL
+  // remember to free all even if alloc fails after successful allocation of first alloc
+
+  struct Token *t;
+  int arg_index = 0, pip_index = 0;
+  int pexist = FALSE;
+  for (int i = 0; i < oTokens->iLength; i++) {
+    t = DynArray_get(oTokens, i);
+    enum TokenType type = t->eType;
+    if (pexist == TRUE && type == TOKEN_WORD) type = TOKEN_PIPE;  
+    switch (type) {
+      case TOKEN_WORD:
+        input->arguments[arg_index] = t->pcValue;
+        arg_index++;
+        break;
+      case TOKEN_REDIN:
+        t = DynArray_get(oTokens, ++i);
+        input->redin = t->pcValue;
+        break;
+      case TOKEN_REDOUT:
+        t = DynArray_get(oTokens, ++i);
+        input->redout = t->pcValue;
+        break;
+      case TOKEN_PIPE:
+        if (pexist == FALSE) pexist = TRUE;
+        input->pipes[pip_index] = t->pcValue;
+        pip_index++;
+        break;
+      case TOKEN_BG:
+        break;
+    }
+  }
+  return input;
+}
+
+void freeCommand(struct Command *c) {
+  if (c == NULL) return;
+
+  free(c->arguments);
+  free(c->pipes);
+  free(c);
+  return;
+}
+
+void freeArrayTokens(DynArray_T oTokens) {
+   if (oTokens == NULL) return;
+   
+   struct Token *t;
+   for (int i = 0; i < oTokens->iLength; i++) {
+    t = DynArray_get(oTokens, i);
+    freeToken(t, NULL);
+   }
+}

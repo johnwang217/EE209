@@ -3,6 +3,7 @@
 
 #include "token.h"
 #include "dynarray.h"
+#include "ish.h"
 
 enum {FALSE, TRUE};
 
@@ -14,5 +15,8 @@ enum BuiltinType checkBuiltin(struct Token *t);
 int countPipe(DynArray_T oTokens);
 int checkBG(DynArray_T oTokens);
 void dumpLex(DynArray_T oTokens);
+struct Command* buildCommand(DynArray_T oTokens);
+void freeCommand(struct Command *c);
+void freeArrayTokens(DynArray_T oTokens);
 
 #endif /* _UTIL_H_ */

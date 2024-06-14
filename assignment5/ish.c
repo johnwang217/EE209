@@ -5,10 +5,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <signal.h>
 
+#include "ish.h"
 #include "lexsyn.h"
 #include "util.h"
 #include "token.h"
@@ -21,11 +23,6 @@
 /* automaton (DFA)                                                    */
 /*--------------------------------------------------------------------*/
 
-void exitTimer(int signum) {
-  alarm(0);
-  _exit(0);
-}
-
 void SIGQUIT_Handler(int signum) {
   signal(SIGQUIT, exitTimer);
   const char *msg = "Type Ctrl-\\ again within 5 seconds to exit";
@@ -33,9 +30,15 @@ void SIGQUIT_Handler(int signum) {
   alarm(5);
 }
 
+void exitTimer(int signum) {
+  alarm(0);
+  _exit(0);
+}
+
 void SIGALARM_Handler(int signum) {
   signal(SIGQUIT, SIGQUIT_Handler);
 }
+
 
 static void
 shellHelper(const char *inLine) {
@@ -65,45 +68,73 @@ shellHelper(const char *inLine) {
 
       syncheck = syntaxCheck(oTokens);
       if (syncheck == SYN_SUCCESS) {
+        //fprintf(stdout, "syntax is correct\n");
         /* TODO */
-        char **arguments = malloc((oTokens->iLength + 1)*sizeof(char *));
-        int i = 0;
-        for (; i < oTokens->iLength; i++) {
-          arguments[i] = ((struct Token *)oTokens->ppvArray[i])->pcValue;
+        struct Command *input = buildCommand(oTokens);
+        if (input == NULL) {
+          errorPrint("Failed to allocate memory", FPRINTF);
+          exit(EXIT_FAILURE);
         }
-        arguments[i] = NULL;
 
         btype = checkBuiltin(DynArray_get(oTokens, 0));
-        if (btype == B_SETENV) {
-          if (arguments[2] == NULL) arguments[2] = "";
-          setenv(arguments[1], arguments[2], 1);
+        if (btype != NORMAL) {
+          if (input->redin != NULL || input->redout != NULL 
+            || input->pipes[0] != NULL) {
+              errorPrint("File redirection with built-in commands is invalid", FPRINTF);
+              freeCommand(input);
+              DynArray_free(oTokens);
+              break;
+            }
+          if (btype == B_SETENV) {
+            if (input->arguments[2] == NULL) input->arguments[2] = "";
+            setenv(input->arguments[1], input->arguments[2], 1);
+          }
+          else if (btype == B_USETENV) {
+            unsetenv(input->arguments[1]);
+          }
+          else if (btype == B_CD) {
+            chdir(input->arguments[1]);
+          }
+          else if (btype == B_EXIT) {
+            exit(0);
+          }
         }
-        else if (btype == B_USETENV) {
-          unsetenv(arguments[1]);
-        }
-        else if (btype == B_CD) {
-          chdir(arguments[1]);
-        }
-        else if (btype == B_EXIT) {
-          exit(0);
-        }
-        else if (btype == NORMAL) {
+        else {
           fflush(NULL);
           if ((pid = fork()) == 0) {
             signal(SIGINT, SIG_DFL);
             signal(SIGQUIT, SIG_DFL);
             signal(SIGALRM, SIG_IGN);
 
-            if (execvp(arguments[0], arguments) < 0) {
-              fprintf(stderr, "failed to execute command: %s\n", strerror(errno));
+            if (input->redin != NULL) {
+              FILE *fp_i;
+              if ((fp_i = fopen(input->redin, "r")) == NULL) {
+                errorPrint(NULL, PERROR);
+                exit(1);
+              }
+              dup2(fileno(fp_i), STDIN_FILENO);
+            }
+
+            if (input->redout != NULL) {
+              FILE *fp_o;
+                if ((fp_o = fopen(input->redout, "w")) == NULL) {
+                errorPrint(NULL, PERROR);
+                exit(1);
+              }
+              chmod(input->redout, 0600);
+              dup2(fileno(fp_o), STDOUT_FILENO);
+            }
+
+            if (execvp(input->arguments[0], input->arguments) < 0) {
+              errorPrint(input->arguments[0], PERROR);
               exit(0);
               }
           }
           else {
             waitpid(pid, NULL, 0);
-            free(arguments);
           }
         }
+        freeCommand(input);
       }
 
       /* syntax error cases */
@@ -119,18 +150,26 @@ shellHelper(const char *inLine) {
         errorPrint("Standard input redirection without file name", FPRINTF);
       else if (syncheck == SYN_FAIL_INVALIDBG)
         errorPrint("Invalid use of background", FPRINTF);
+      freeArrayTokens(oTokens);
+      DynArray_free(oTokens);
       break;
 
     case LEX_QERROR:
       errorPrint("Unmatched quote", FPRINTF);
+      freeArrayTokens(oTokens);
+      DynArray_free(oTokens);
       break;
 
     case LEX_NOMEM:
       errorPrint("Cannot allocate memory", FPRINTF);
+      freeArrayTokens(oTokens);
+      DynArray_free(oTokens);
       break;
 
     case LEX_LONG:
       errorPrint("Command is too large", FPRINTF);
+      freeArrayTokens(oTokens);
+      DynArray_free(oTokens);
       break;
 
     default:
@@ -139,10 +178,11 @@ shellHelper(const char *inLine) {
   }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
   /* TODO */
   sigset_t sSet;
 
+  /* to make sure these signals aren't blocked */
   sigemptyset(&sSet);
   sigaddset(&sSet, SIGALRM);
   sigaddset(&sSet, SIGINT);
@@ -154,15 +194,19 @@ int main() {
   signal(SIGQUIT, SIGQUIT_Handler);
 
   char acLine[MAX_LINE_SIZE + 2];
-  FILE *fp;
+
   char *homeDir = strdup(getenv("HOME"));
   homeDir = realloc(homeDir, strlen(homeDir) + 8);
   strcat(homeDir, "/.ishrc");
 
+  FILE *fp;
   if ((fp = fopen(homeDir, "r")) == NULL) {
     fp = stdin;
   }
   free(homeDir);
+
+  errorPrint(argv[0], SETUP);
+
   while (1) {
     fprintf(stdout, "%% ");
     fflush(stdout);
