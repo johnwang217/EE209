@@ -12,7 +12,6 @@
 
 #include "ish.h"
 #include "lexsyn.h"
-#include "util.h"
 #include "token.h"
 
 /*--------------------------------------------------------------------*/
@@ -39,7 +38,6 @@ void SIGALARM_Handler(int signum) {
   signal(SIGQUIT, SIGQUIT_Handler);
 }
 
-
 static void
 shellHelper(const char *inLine) {
   DynArray_T oTokens;
@@ -57,19 +55,19 @@ shellHelper(const char *inLine) {
     exit(EXIT_FAILURE);
   }
 
-
   lexcheck = lexLine(inLine, oTokens);
   switch (lexcheck) {
     case LEX_SUCCESS:
-      if (DynArray_getLength(oTokens) == 0)
+      if (DynArray_getLength(oTokens) == 0) {
+        DynArray_free(oTokens);
         return;
+      }
 
       /* dump lex result when DEBUG is set */
       dumpLex(oTokens);
 
       syncheck = syntaxCheck(oTokens);
       if (syncheck == SYN_SUCCESS) {
-        //fprintf(stdout, "syntax is correct\n");
         /* TODO */
         struct Command *input = buildCommand(oTokens);
         if (input == NULL) {
@@ -78,28 +76,16 @@ shellHelper(const char *inLine) {
         }
 
         btype = checkBuiltin(DynArray_get(oTokens, 0));
+
         if (btype != NORMAL) {
-          if (input->redin != NULL || input->redout != NULL 
-            || input->pipes[0] != NULL) {
-              errorPrint("File redirection with built-in commands is invalid", FPRINTF);
-              freeCommand(input);
-              DynArray_free(oTokens);
-              break;
-            }
-          if (btype == B_SETENV) {
-            if (input->arguments[2] == NULL) input->arguments[2] = "";
-            setenv(input->arguments[1], input->arguments[2], 1);
-          }
-          else if (btype == B_USETENV) {
-            unsetenv(input->arguments[1]);
-          }
-          else if (btype == B_CD) {
-            chdir(input->arguments[1]);
-          }
-          else if (btype == B_EXIT) {
-            exit(0);
+          if (execBuiltin(btype, input) < 0) {
+            freeCommand(input);
+            freeArrayTokens(oTokens);
+            DynArray_free(oTokens);
+            break;
           }
         }
+        
         else {
           fflush(NULL);
           if ((pid = fork()) == 0) {
@@ -184,6 +170,7 @@ shellHelper(const char *inLine) {
         errorPrint("Standard input redirection without file name", FPRINTF);
       else if (syncheck == SYN_FAIL_INVALIDBG)
         errorPrint("Invalid use of background", FPRINTF);
+      
       freeArrayTokens(oTokens);
       DynArray_free(oTokens);
       break;
@@ -210,6 +197,63 @@ shellHelper(const char *inLine) {
       errorPrint("lexLine needs to be fixed", FPRINTF);
       exit(EXIT_FAILURE);
   }
+}
+
+int execBuiltin (enum BuiltinType btype, struct Command *c) {
+
+  if (btype == B_SETENV) {
+    if ((c->arg_index != 2 && c->arg_index != 3) 
+      || c->redin != NULL || c->redout != NULL) {
+      errorPrint("setenv takes one or two parameters", FPRINTF);
+      return EXEC_FAIL;
+    }
+    if (c->arguments[2] == NULL) c->arguments[2] = "";
+    if(setenv(c->arguments[1], c->arguments[2], 1) < 0) {
+      errorPrint (NULL, PERROR);
+      return EXEC_FAIL;
+    }
+  }
+
+  else if (btype == B_USETENV) {
+    if (c->arg_index != 2 || c->redin != NULL
+      || c->redout != NULL) {
+      errorPrint("unsetenv takes one parameter", FPRINTF);
+      return EXEC_FAIL;
+    }
+    if(unsetenv(c->arguments[1]) < 0) {
+      errorPrint (NULL, PERROR);
+      return EXEC_FAIL;
+    }
+  }
+
+  else if (btype == B_CD) {
+    if (c->arg_index != 2 || c->redin != NULL
+      || c->redout != NULL) {
+      errorPrint("cd takes one parameter", FPRINTF);
+      return EXEC_FAIL;
+    }
+    if (chdir(c->arguments[1]) < 0) {
+      errorPrint(NULL, PERROR);
+      return EXEC_FAIL;
+    }
+  }
+
+  else if (btype == B_EXIT) {
+    if (c->arg_index != 1 || c->redin != NULL
+      || c->redout != NULL) {
+      errorPrint("exit does not take any parameters", FPRINTF);
+      return EXEC_FAIL;
+    }
+    exit(0);
+  }
+
+  //btype == B_FG or B_ALIAS
+  else { 
+    errorPrint("fg and alias are not implemented", FPRINTF);
+    return EXEC_FAIL;
+  }
+
+  return EXEC_SUCC;
 }
 
 int main(int argc, char* argv[]) {
