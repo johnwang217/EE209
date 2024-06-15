@@ -25,7 +25,7 @@
 
 void SIGQUIT_Handler(int signum) {
   signal(SIGQUIT, exitTimer);
-  const char *msg = "Type Ctrl-\\ again within 5 seconds to exit";
+  const char *msg = "\nType Ctrl-\\ again within 5 seconds to exit\n";
   write(STDOUT_FILENO, msg, strlen(msg));
   alarm(5);
 }
@@ -244,17 +244,24 @@ int main(int argc, char* argv[]) {
   while (1) {
     fprintf(stdout, "%% ");
     fflush(stdout);
+  skip:
     if (fgets(acLine, MAX_LINE_SIZE, fp) == NULL) {
       if (fp != stdin) {
         fp = stdin;
-        fgets(acLine, MAX_LINE_SIZE, fp);
+        goto skip;
       }
       else {
         printf("\n");
         exit(EXIT_SUCCESS);
       }
     }
-    if (fp != stdin) fprintf(stdout, "%s", acLine);
+    if (fp != stdin) {
+      if (strchr(acLine, '\n') == NULL) {
+        char* c = strchr(acLine, '\0');
+        *c = '\n';
+      }
+      fprintf(stdout, "%s", acLine);
+    }
     shellHelper(acLine);
   }
 }
