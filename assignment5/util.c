@@ -121,22 +121,24 @@ dumpLex(DynArray_T oTokens) {
 struct Command*
 buildCommand(DynArray_T oTokens) {
   struct Command *input = calloc(1, sizeof(struct Command));
-  input->arguments = calloc(1, (oTokens->iLength + 1)*sizeof(char *));
-  input->pipes = calloc(1, (oTokens->iLength + 1)*sizeof(char *));
+  input->arguments = calloc(1, (DynArray_getLength(oTokens) + 1)*sizeof(char *));
+  input->pipes = calloc(1, (DynArray_getLength(oTokens) + 1)*sizeof(char *));
   // add error handling "not enough memory" return NULL
   // remember to free all even if alloc fails after successful allocation of first alloc
 
   struct Token *t;
-  int arg_index = 0, pip_index = 0;
+  input->arg_index = 0;
+  input->pip_index = 0;
   int pexist = FALSE;
-  for (int i = 0; i < oTokens->iLength; i++) {
+  for (int i = 0; i < DynArray_getLength(oTokens); i++) {
+    
     t = DynArray_get(oTokens, i);
     enum TokenType type = t->eType;
     if (pexist == TRUE && type == TOKEN_WORD) type = TOKEN_PIPE;  
     switch (type) {
       case TOKEN_WORD:
-        input->arguments[arg_index] = t->pcValue;
-        arg_index++;
+        input->arguments[input->arg_index] = t->pcValue;
+        input->arg_index++;
         break;
       case TOKEN_REDIN:
         t = DynArray_get(oTokens, ++i);
@@ -147,11 +149,18 @@ buildCommand(DynArray_T oTokens) {
         input->redout = t->pcValue;
         break;
       case TOKEN_PIPE:
-        if (pexist == FALSE) pexist = TRUE;
-        input->pipes[pip_index] = t->pcValue;
-        pip_index++;
+        if (pexist == FALSE) {
+          pexist = TRUE;
+          for (int j = 0; j < input->arg_index; j++) {
+            input->pipes[j] = input->arguments[j];
+          }
+          input->pip_index = input->arg_index;
+        }
+        input->pipes[input->pip_index] = t->pcValue;
+        input->pip_index++;
         break;
       case TOKEN_BG:
+        assert(0);
         break;
     }
   }
@@ -171,7 +180,7 @@ void freeArrayTokens(DynArray_T oTokens) {
    if (oTokens == NULL) return;
    
    struct Token *t;
-   for (int i = 0; i < oTokens->iLength; i++) {
+   for (int i = 0; i < DynArray_getLength(oTokens); i++) {
     t = DynArray_get(oTokens, i);
     freeToken(t, NULL);
    }

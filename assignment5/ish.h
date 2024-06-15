@@ -6,6 +6,8 @@ struct Command {
   char *redin;
   char *redout;
   char **pipes;
+  int arg_index;
+  int pip_index;
 };
 
 void SIGQUIT_Handler(int signum);

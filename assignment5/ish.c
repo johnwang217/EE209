@@ -49,6 +49,7 @@ shellHelper(const char *inLine) {
   enum BuiltinType btype;
 
   pid_t pid;
+  int fd[2];
 
   oTokens = DynArray_new(0);
   if (oTokens == NULL) {
@@ -102,6 +103,7 @@ shellHelper(const char *inLine) {
         else {
           fflush(NULL);
           if ((pid = fork()) == 0) {
+            
             signal(SIGINT, SIG_DFL);
             signal(SIGQUIT, SIG_DFL);
             signal(SIGALRM, SIG_IGN);
@@ -123,6 +125,38 @@ shellHelper(const char *inLine) {
               }
               chmod(input->redout, 0600);
               dup2(fileno(fp_o), STDOUT_FILENO);
+            }
+            
+            int r, l = (input->pip_index) - 1;
+
+            while (input->pipes[0] != NULL) {
+              memset(input->arguments, 0, (DynArray_getLength(oTokens) + 1)*sizeof(char *));
+              pipe(fd);
+              //load end of pipe to arg
+              r = l;
+              while (input->pipes[l] != NULL) {
+                l--;
+                if (l < 0) break;
+              }
+              for (int k = 0; k < r-l; k++) {
+                input->arguments[k] = input->pipes[k+l+1];
+                input->pipes[(k+l)+1] = NULL; //NULL loaded out entries
+              }
+              l--;
+
+              if (input->pipes[0] != NULL) {
+                if ((pid = fork()) == 0) {
+                  close(fd[0]);
+                  dup2(fd[1], STDOUT_FILENO);
+                  continue;
+                }
+                else {
+                  close(fd[1]);
+                  dup2(fd[0], STDIN_FILENO);
+                  waitpid(pid, NULL, 0);
+                  break;
+                }
+              }
             }
 
             if (execvp(input->arguments[0], input->arguments) < 0) {
@@ -211,8 +245,14 @@ int main(int argc, char* argv[]) {
     fprintf(stdout, "%% ");
     fflush(stdout);
     if (fgets(acLine, MAX_LINE_SIZE, fp) == NULL) {
-      printf("\n");
-      exit(EXIT_SUCCESS);
+      if (fp != stdin) {
+        fp = stdin;
+        fgets(acLine, MAX_LINE_SIZE, fp);
+      }
+      else {
+        printf("\n");
+        exit(EXIT_SUCCESS);
+      }
     }
     if (fp != stdin) fprintf(stdout, "%s", acLine);
     shellHelper(acLine);
