@@ -124,6 +124,7 @@ shellHelper(const char *inLine) {
 }
 
 /*--------------------------------------------------------------------*/
+FILE* input_fp;
 
 int main(int argc, char* argv[]) {
   /* TODO */
@@ -149,9 +150,8 @@ int main(int argc, char* argv[]) {
   homeDir = realloc(homeDir, strlen(homeDir) + 8);
   strcat(homeDir, "/.ishrc");
 
-  FILE *fp;
-  if ((fp = fopen(homeDir, "r")) == NULL) {
-    fp = stdin; // when .ishrc doesn't exist or is not readable
+  if ((input_fp = fopen(homeDir, "r")) == NULL) {
+    input_fp = stdin; // when .ishrc doesn't exist or is not readable
   }
   free(homeDir);
 
@@ -161,9 +161,9 @@ int main(int argc, char* argv[]) {
     fprintf(stdout, "%% ");
     fflush(stdout);
   start:
-    if (fgets(acLine, MAX_LINE_SIZE, fp) == NULL) {
-      if (fp != stdin) { // if done reading from .ishrc file
-        fp = stdin;      // redirect input back to standard input 
+    if (fgets(acLine, MAX_LINE_SIZE, input_fp) == NULL) {
+      if (input_fp != stdin) { // if done reading from .ishrc file
+        input_fp = stdin;      // redirect input back to standard input 
         goto start;
       }
       else {
@@ -171,13 +171,10 @@ int main(int argc, char* argv[]) {
         exit(EXIT_SUCCESS);
       }
     }
-    if (fp != stdin) {
-      // appends nextline if it doesn't exist
-      if (strchr(acLine, '\n') == NULL) {
-        char* c = strchr(acLine, '\0');
-        *c = '\n';
-      }
+    if (input_fp != stdin) {
       fprintf(stdout, "%s", acLine);
+      // appends nextline if it doesn't exist
+      if (strchr(acLine, '\n') == NULL) fprintf(stdout, "\n");
     }
     shellHelper(acLine);
   }
