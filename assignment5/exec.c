@@ -19,6 +19,8 @@
 #include "token.h"
 #include "exec.h"
 
+extern FILE* input_fp;
+
 /*--------------------------------------------------------------------*/
 
 /* Command consists of arrays of token values split by their types and
@@ -219,7 +221,7 @@ int execCommand (struct Command *c) {
 
   fflush(NULL);
   if ((pid = fork()) == 0) {
-            
+    if (input_fp != stdin) fclose(input_fp);
     signal(SIGINT, SIG_DFL);
     signal(SIGQUIT, SIG_DFL);
     signal(SIGALRM, SIG_IGN);
@@ -229,7 +231,6 @@ int execCommand (struct Command *c) {
       FILE *fp_i;
       if ((fp_i = fopen(c->redin, "r")) == NULL) {
         errorPrint(NULL, PERROR);
-        return EXEC_FAIL;
         exit(EXIT_FAILURE);
       }
       dup2(fileno(fp_i), STDIN_FILENO);
