@@ -1,3 +1,10 @@
+/*--------------------------------------------------------------------*/
+/* lecsyn.c                                                           */
+/* Name: Wang Jonghyuk                                                */
+/* Student ID: 20220425                                               */
+/* Description: defines functions for lexical and syntax analysis     */
+/*--------------------------------------------------------------------*/
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +32,7 @@ createToken(DynArray_T oTokens, enum TokenType ttype, char *value) {
 }
 
 /*--------------------------------------------------------------------*/
+
 void command_lexLine(const char *pcLine, DynArray_T cTokens)
 {
   enum commandState {STATE_START, STATE_IN_WORD};
@@ -87,6 +95,8 @@ void command_lexLine(const char *pcLine, DynArray_T cTokens)
 
   }
 }
+
+/*--------------------------------------------------------------------*/
 
 enum AliasResult
 alias_lexLine(const char *pcLine, DynArray_T oTokens){
@@ -170,18 +180,23 @@ alias_lexLine(const char *pcLine, DynArray_T oTokens){
 
 }
 
+/*--------------------------------------------------------------------*/
+
 enum LexResult
 lexLine_quote(const char *pcLine, DynArray_T oTokens) {
 
   /* lexLine() uses a DFA approach.  It "reads" its characters from
      pcLine. The difference from 'lexLine' is about STATE_IN_QUOTE
      here, we consider ' ' as a token like double quote
-FIXME: The reason why we use duplicated-like function is simple 'lexLine' lesical analysis guide-line in EE209
-shows ' as a normal character, not quotes.
-So, we need to handle this as a normal character in general lesical analysis.
+
+FIXME: The reason why we use duplicated-like function is simple 
+'lexLine' lesical analysis guide-line in EE209 shows ' as a normal 
+character, not quotes. So, we need to handle this as a normal character
+in general lesical analysis.
 */
 
-  enum LexState {STATE_START, STATE_IN_NUMBER, STATE_IN_WORD, STATE_IN_DQUOTE, STATE_IN_QUOTE};
+  enum LexState {STATE_START, STATE_IN_NUMBER, STATE_IN_WORD, 
+    STATE_IN_DQUOTE, STATE_IN_QUOTE};
 
   enum LexState eState = STATE_START;
 
@@ -270,6 +285,7 @@ So, we need to handle this as a normal character in general lesical analysis.
   }
 }
 
+/*--------------------------------------------------------------------*/
 
 enum LexResult
 lexLine(const char *pcLine, DynArray_T oTokens) {
@@ -277,7 +293,8 @@ lexLine(const char *pcLine, DynArray_T oTokens) {
   /* lexLine() uses a DFA approach.  It "reads" its characters from
      pcLine. */
 
-  enum LexState {STATE_START, STATE_IN_NUMBER, STATE_IN_WORD, STATE_IN_DQUOTE, STATE_IN_QUOTE};
+  enum LexState {STATE_START, STATE_IN_NUMBER, STATE_IN_WORD, 
+    STATE_IN_DQUOTE, STATE_IN_QUOTE};
 
   enum LexState eState = STATE_START;
 
@@ -451,6 +468,8 @@ lexLine(const char *pcLine, DynArray_T oTokens) {
   }
 }
 
+/*--------------------------------------------------------------------*/
+
 enum SyntaxResult
 syntaxCheck(DynArray_T oTokens) {
   int i;
@@ -470,7 +489,8 @@ syntaxCheck(DynArray_T oTokens) {
       }
     } else {
       if (t->eType == TOKEN_PIPE) {
-        /* No redout in previous tokens and no consecutive pipe in following tokens */
+        /* No redout in previous tokens and no consecutive pipe in 
+           following tokens */
         if (roexist == TRUE) {
           /* Multiple redirection error */
           ret = SYN_FAIL_MULTREDOUT;
@@ -499,7 +519,8 @@ syntaxCheck(DynArray_T oTokens) {
         }
       }
       else if (t->eType == TOKEN_REDIN) {
-        /* No pipe in previous tokens and no redin in following tokens */
+        /* No pipe in previous tokens and no redin in following 
+          tokens */
         if ((pexist == TRUE) || (riexist == TRUE)) {
           /* Multiple redirection error */
           ret = SYN_FAIL_MULTREDIN;
@@ -548,4 +569,3 @@ syntaxCheck(DynArray_T oTokens) {
 
   return ret;
 }
-

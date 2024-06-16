@@ -4,12 +4,11 @@
 #include "util.h"
 #include "command.h"
 
-#define EXEC_FAIL -1
-#define EXEC_SUCC 0
-
 void SIGQUIT_Handler(int signum);
 void exitTimer(int signum);
 void SIGALARM_Handler(int signum);
-int execBuiltin(enum BuiltinType btype, struct Command *input);
+int execBuiltin(struct Command *c, enum BuiltinType btype);
+int execCommand(struct Command *c);
+void loadPipetoArg(struct Command *c);
 
 #endif /* _ISH_H_ */

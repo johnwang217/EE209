@@ -6,7 +6,8 @@
 
 enum {FALSE, TRUE};
 
-enum BuiltinType {NORMAL, B_EXIT, B_SETENV, B_USETENV, B_CD, B_ALIAS, B_FG};
+enum BuiltinType {NORMAL, B_EXIT, B_SETENV, 
+    B_USETENV, B_CD, B_ALIAS, B_FG};
 enum PrintMode {SETUP, PERROR, FPRINTF, ALIAS};
 
 void errorPrint(char *input, enum PrintMode mode);

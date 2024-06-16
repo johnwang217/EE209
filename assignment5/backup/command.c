@@ -11,15 +11,16 @@ struct Command* buildCommand(DynArray_T oTokens) {
 
   struct Command *input;
   input = (struct Command*)calloc(1, sizeof(struct Command));
+  input->maxLength = DynArray_getLength(oTokens) + 1;
   input->arguments = 
-    (char**)calloc(1, (DynArray_getLength(oTokens) + 1)*sizeof(char*));
-  input->pipes = 
-    (char**)calloc(1, (DynArray_getLength(oTokens) + 1)*sizeof(char*));
-  if (input == NULL || input->arguments == NULL || input->pipes == NULL) {
+    (char**)calloc(1, (input->maxLength)*sizeof(char*));
+  input->pipedArgs = 
+    (char**)calloc(1, (input->maxLength)*sizeof(char*));
+  if (input == NULL || input->arguments == NULL || input->pipedArgs == NULL) {
     return NULL;
   }
-  input->arg_index = 0;
-  input->pip_index = 0;
+  input->argLength = 0;
+  input->pipeLength = 0;
 
   struct Token *t;
   int pexist = FALSE;
@@ -29,8 +30,8 @@ struct Command* buildCommand(DynArray_T oTokens) {
     if (pexist == TRUE && type == TOKEN_WORD) type = TOKEN_PIPE;  
     switch (type) {
       case TOKEN_WORD:
-        input->arguments[input->arg_index] = t->pcValue;
-        input->arg_index++;
+        input->arguments[input->argLength] = t->pcValue;
+        input->argLength++;
         break;
       case TOKEN_REDIN:
         t = DynArray_get(oTokens, ++i);
@@ -43,15 +44,15 @@ struct Command* buildCommand(DynArray_T oTokens) {
       case TOKEN_PIPE:
         if (pexist == FALSE) {
           pexist = TRUE;
-          for (int j = 0; j < input->arg_index; j++) {
-            input->pipes[j] = input->arguments[j];
+          for (int j = 0; j < input->argLength; j++) {
+            input->pipedArgs[j] = input->arguments[j];
           }
-          input->pip_index = input->arg_index;
-          input->arg_index = 0;
-          memset(input->arguments, 0, (DynArray_getLength(oTokens) + 1)*sizeof(char *));
+          input->pipeLength = input->argLength;
+          input->argLength = 0;
+          memset(input->arguments, 0, (input->maxLength)*sizeof(char *));
         }
-        input->pipes[input->pip_index] = t->pcValue;
-        input->pip_index++;
+        input->pipedArgs[input->pipeLength] = t->pcValue;
+        input->pipeLength++;
         break;
       case TOKEN_BG:
         break;
@@ -64,7 +65,7 @@ void freeCommand(struct Command *c) {
   if (c == NULL) return;
 
   free(c->arguments);
-  free(c->pipes);
+  free(c->pipedArgs);
   free(c);
   return;
 }

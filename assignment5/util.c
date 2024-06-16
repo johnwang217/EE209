@@ -1,3 +1,10 @@
+/*--------------------------------------------------------------------*/
+/* util.c                                                             */
+/* Name: Wang Jonghyuk                                                */
+/* Student ID: 20220425                                               */
+/* Description: defines useful functions for implementing ish         */
+/*--------------------------------------------------------------------*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -5,6 +12,8 @@
 #include <errno.h>
 
 #include "util.h"
+
+/*--------------------------------------------------------------------*/
 
 void
 errorPrint(char *input, enum PrintMode mode) {
@@ -14,7 +23,8 @@ errorPrint(char *input, enum PrintMode mode) {
     ishname = input;
   else {
     if (ishname == NULL)
-      fprintf(stderr, "[WARN] Shell name is not set. Please fix this bug in main function\n");
+      fprintf(stderr, "[WARN] Shell name is not set. Please fix"
+        " this bug in main function\n");
     if (mode == PERROR) {
       if (input == NULL)
         fprintf(stderr, "%s: %s\n", ishname, strerror(errno));
@@ -30,6 +40,8 @@ errorPrint(char *input, enum PrintMode mode) {
     }
 }
 
+/*--------------------------------------------------------------------*/
+
 enum BuiltinType
 checkBuiltin(struct Token *t) {
   /* Check null input before using string functions  */
@@ -42,15 +54,20 @@ checkBuiltin(struct Token *t) {
     return B_FG;
   if (strncmp(t->pcValue, "exit", 4) == 0 && strlen(t->pcValue) == 4)
     return B_EXIT;
-  else if (strncmp(t->pcValue, "setenv", 6) == 0 && strlen(t->pcValue) == 6)
-    return B_SETENV;
-  else if (strncmp(t->pcValue, "unsetenv", 8) == 0 && strlen(t->pcValue) == 8)
-    return B_USETENV;
-  else if (strncmp(t->pcValue, "alias" , 5) == 0 && strlen(t->pcValue) == 5) 
-    return B_ALIAS;
+  else if (strncmp(t->pcValue, "setenv", 6) == 0 
+    && strlen(t->pcValue) == 6)
+      return B_SETENV;
+  else if (strncmp(t->pcValue, "unsetenv", 8) == 0 
+    && strlen(t->pcValue) == 8)
+      return B_USETENV;
+  else if (strncmp(t->pcValue, "alias" , 5) == 0 
+    && strlen(t->pcValue) == 5) 
+      return B_ALIAS;
   else
     return NORMAL;
 }
+
+/*--------------------------------------------------------------------*/
 
 int
 countPipe(DynArray_T oTokens) {
@@ -66,6 +83,8 @@ countPipe(DynArray_T oTokens) {
   return cnt;
 }
 
+/*--------------------------------------------------------------------*/
+
 /* Check background Command */
 int
 checkBG(DynArray_T oTokens) {
@@ -79,6 +98,8 @@ checkBG(DynArray_T oTokens) {
   }
   return 0;
 }
+
+/*--------------------------------------------------------------------*/
 
 const char* specialTokenToStr(struct Token* psToken) {
   switch(psToken->eType) {
@@ -102,6 +123,8 @@ const char* specialTokenToStr(struct Token* psToken) {
   }
 }
 
+/*--------------------------------------------------------------------*/
+
 void
 dumpLex(DynArray_T oTokens) {
   if (getenv("DEBUG") != NULL) {
@@ -118,6 +141,9 @@ dumpLex(DynArray_T oTokens) {
   }
 }
 
+/*--------------------------------------------------------------------*/
+
+/* frees oTokens and its element tokens. */
 void freeArrayTokens(DynArray_T oTokens) {
    if (oTokens == NULL) return;
    
@@ -126,5 +152,6 @@ void freeArrayTokens(DynArray_T oTokens) {
     t = DynArray_get(oTokens, i);
     freeToken(t, NULL);
    }
+   DynArray_free(oTokens);
    return;
 }

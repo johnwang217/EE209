@@ -6,16 +6,18 @@
 struct Command 
 {
   char **arguments;
+
+  char **pipedArgs;
   
   char *redin;
   
   char *redout;
   
-  char **pipes;
+  int argLength;
   
-  int arg_index;
-  
-  int pip_index;
+  int pipeLength;
+
+  int maxLength;
 };
 
 struct Command* buildCommand(DynArray_T oTokens);

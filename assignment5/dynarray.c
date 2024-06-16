@@ -1,6 +1,9 @@
 /*--------------------------------------------------------------------*/
 /* dynarray.c                                                         */
 /* Author: Bob Dondero                                                */
+/* Name: Wang Jonghyuk                                                */
+/* Student ID: 20220425                                               */
+/* Description: implements dynamically resizable array                */
 /*--------------------------------------------------------------------*/
 
 #include "dynarray.h"
@@ -124,7 +127,7 @@ void *DynArray_get(DynArray_T oDynArray, int iIndex)
 void *DynArray_set(DynArray_T oDynArray, int iIndex,
     const void *pvElement)
 
-  /* Assign pvElement to the iIndex'th element of oDynArray.  Return the 
+  /* Assign pvElement to the iIndex'th element of oDynArray. Return the 
      old element.
      It is a checked runtime error for oDynArray to be NULL.
      It is a checked runtime error for iIndex to be less than 0 or
@@ -164,7 +167,7 @@ static void DynArray_grow(DynArray_T oDynArray)
 
 int DynArray_add(DynArray_T oDynArray, const void *pvElement)
 
-  /* Add pvElement to the end of oDynArray, thus incrementing its length.
+  /* Add pvElement to the end of oDynArray, thus incrementing its length
      It is a checked runtime error for oDynArray to be NULL. */
 
 {

@@ -1,3 +1,10 @@
+/*--------------------------------------------------------------------*/
+/* token.c                                                            */
+/* Name: Wang Jonghyuk                                                */
+/* Student ID: 20220425                                               */
+/* Description: defines functions for struct Token                    */
+/*--------------------------------------------------------------------*/
+
 #include <stdlib.h>
 #include <string.h>
 #include "token.h"

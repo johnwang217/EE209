@@ -2,7 +2,7 @@ STUDENT_ID := $(shell cat STUDENT_ID)
 SUBMIT_DIR := $(STUDENT_ID)_assign5
 SUBMIT_FILES:= *.c *.h Makefile readme EthicsOath.pdf
 SUBMIT := $(STUDENT_ID)_assign5.tar.gz
-CFLAGS := -g #-D_DEFAULT_SOURCE -D_GNU_SOURCE
+CFLAGS := -D_DEFAULT_SOURCE -D_GNU_SOURCE
 CC := gcc209
 
 TARGET = ish

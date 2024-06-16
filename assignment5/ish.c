@@ -1,43 +1,46 @@
-#define _DEFAULT_SOURCE
-#define _GNU_SOURCE
+/*--------------------------------------------------------------------*/
+/* ish.c                                                              */
+/* Author: Wang Jonghyuk                                              */
+/* Student ID: 20220425                                               */
+/* Description: implements interactive UNIX shell                     */
+/*--------------------------------------------------------------------*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <errno.h>
 #include <signal.h>
+#include <unistd.h>
 
-#include "ish.h"
 #include "lexsyn.h"
-#include "token.h"
+#include "util.h"
+#include "exec.h"
 
 /*--------------------------------------------------------------------*/
-/* ish.c                                                              */
-/* Original Author: Bob Dondero                                       */
-/* Modified by : Park Ilwoo                                           */
-/* Illustrate lexical analysis using a deterministic finite state     */
-/* automaton (DFA)                                                    */
-/*--------------------------------------------------------------------*/
 
-void SIGQUIT_Handler(int signum) {
-  signal(SIGQUIT, exitTimer);
-  const char *msg = "\nType Ctrl-\\ again within 5 seconds to exit\n";
-  write(STDOUT_FILENO, msg, strlen(msg));
-  alarm(5);
-}
-
+/* a SIGQUIT handler that terminates process */
 void exitTimer(int signum) {
   alarm(0);
   _exit(0);
 }
 
+/* a SIGQUIT handler that sets off an alarm of 5 seconds to raise 
+    another SIGQUIT to terminate process. */
+void SIGQUIT_Handler(int signum) {
+  signal(SIGQUIT, exitTimer);
+  const char *msg = "\nType Ctrl-\\ again within 5 seconds to exit.\n";
+  write(STDOUT_FILENO, msg, strlen(msg));
+  alarm(5);
+}
+
+/* a SIGALARM handler that cancels pending termination. */
 void SIGALARM_Handler(int signum) {
   signal(SIGQUIT, SIGQUIT_Handler);
 }
 
+/*--------------------------------------------------------------------*/
+
+/* processes command recieved from inLine. If error occurs, prints
+    appropriate messages to stderr. */
 static void
 shellHelper(const char *inLine) {
   DynArray_T oTokens;
@@ -45,9 +48,6 @@ shellHelper(const char *inLine) {
   enum LexResult lexcheck;
   enum SyntaxResult syncheck;
   enum BuiltinType btype;
-
-  pid_t pid;
-  int fd[2];
 
   oTokens = DynArray_new(0);
   if (oTokens == NULL) {
@@ -71,89 +71,15 @@ shellHelper(const char *inLine) {
         /* TODO */
         struct Command *input = buildCommand(oTokens);
         if (input == NULL) {
-          errorPrint("Failed to allocate memory", FPRINTF);
+          errorPrint("Cannot allocate memory", FPRINTF);
           exit(EXIT_FAILURE);
         }
 
         btype = checkBuiltin(DynArray_get(oTokens, 0));
 
-        if (btype != NORMAL) {
-          if (execBuiltin(btype, input) < 0) {
-            freeCommand(input);
-            freeArrayTokens(oTokens);
-            DynArray_free(oTokens);
-            break;
-          }
-        }
+        if (btype != NORMAL) execBuiltin(input, btype);
+        else execCommand(input);
         
-        else {
-          fflush(NULL);
-          if ((pid = fork()) == 0) {
-            
-            signal(SIGINT, SIG_DFL);
-            signal(SIGQUIT, SIG_DFL);
-            signal(SIGALRM, SIG_IGN);
-
-            if (input->redin != NULL) {
-              FILE *fp_i;
-              if ((fp_i = fopen(input->redin, "r")) == NULL) {
-                errorPrint(NULL, PERROR);
-                exit(1);
-              }
-              dup2(fileno(fp_i), STDIN_FILENO);
-            }
-
-            if (input->redout != NULL) {
-              FILE *fp_o;
-                if ((fp_o = fopen(input->redout, "w")) == NULL) {
-                errorPrint(NULL, PERROR);
-                exit(1);
-              }
-              chmod(input->redout, 0600);
-              dup2(fileno(fp_o), STDOUT_FILENO);
-            }
-            
-            int r, l = (input->pip_index) - 1;
-
-            while (input->pipes[0] != NULL) {
-              memset(input->arguments, 0, (DynArray_getLength(oTokens) + 1)*sizeof(char *));
-              pipe(fd);
-              //load end of pipe to arg
-              r = l;
-              while (input->pipes[l] != NULL) {
-                l--;
-                if (l < 0) break;
-              }
-              for (int k = 0; k < r-l; k++) {
-                input->arguments[k] = input->pipes[k+l+1];
-                input->pipes[(k+l)+1] = NULL; //NULL loaded out entries
-              }
-              l--;
-
-              if (input->pipes[0] != NULL) {
-                if ((pid = fork()) == 0) {
-                  close(fd[0]);
-                  dup2(fd[1], STDOUT_FILENO);
-                  continue;
-                }
-                else {
-                  close(fd[1]);
-                  dup2(fd[0], STDIN_FILENO);
-                  waitpid(pid, NULL, 0);
-                  break;
-                }
-              }
-            }
-
-            if (execvp(input->arguments[0], input->arguments) < 0) {
-              errorPrint(input->arguments[0], PERROR);
-              exit(0);
-              }
-          }
-          else {
-            waitpid(pid, NULL, 0);
-          }
-        }
         freeCommand(input);
       }
 
@@ -163,34 +89,32 @@ shellHelper(const char *inLine) {
       else if (syncheck == SYN_FAIL_MULTREDOUT)
         errorPrint("Multiple redirection of standard out", FPRINTF);
       else if (syncheck == SYN_FAIL_NODESTOUT)
-        errorPrint("Standard output redirection without file name", FPRINTF);
+        errorPrint("Standard output redirection without file name",
+           FPRINTF);
       else if (syncheck == SYN_FAIL_MULTREDIN)
         errorPrint("Multiple redirection of standard input", FPRINTF);
       else if (syncheck == SYN_FAIL_NODESTIN)
-        errorPrint("Standard input redirection without file name", FPRINTF);
+        errorPrint("Standard input redirection without file name",
+           FPRINTF);
       else if (syncheck == SYN_FAIL_INVALIDBG)
         errorPrint("Invalid use of background", FPRINTF);
       
       freeArrayTokens(oTokens);
-      DynArray_free(oTokens);
       break;
 
     case LEX_QERROR:
       errorPrint("Unmatched quote", FPRINTF);
       freeArrayTokens(oTokens);
-      DynArray_free(oTokens);
       break;
 
     case LEX_NOMEM:
       errorPrint("Cannot allocate memory", FPRINTF);
       freeArrayTokens(oTokens);
-      DynArray_free(oTokens);
       break;
 
     case LEX_LONG:
       errorPrint("Command is too large", FPRINTF);
       freeArrayTokens(oTokens);
-      DynArray_free(oTokens);
       break;
 
     default:
@@ -199,62 +123,7 @@ shellHelper(const char *inLine) {
   }
 }
 
-int execBuiltin (enum BuiltinType btype, struct Command *c) {
-
-  if (btype == B_SETENV) {
-    if ((c->arg_index != 2 && c->arg_index != 3) 
-      || c->redin != NULL || c->redout != NULL) {
-      errorPrint("setenv takes one or two parameters", FPRINTF);
-      return EXEC_FAIL;
-    }
-    if (c->arguments[2] == NULL) c->arguments[2] = "";
-    if(setenv(c->arguments[1], c->arguments[2], 1) < 0) {
-      errorPrint (NULL, PERROR);
-      return EXEC_FAIL;
-    }
-  }
-
-  else if (btype == B_USETENV) {
-    if (c->arg_index != 2 || c->redin != NULL
-      || c->redout != NULL) {
-      errorPrint("unsetenv takes one parameter", FPRINTF);
-      return EXEC_FAIL;
-    }
-    if(unsetenv(c->arguments[1]) < 0) {
-      errorPrint (NULL, PERROR);
-      return EXEC_FAIL;
-    }
-  }
-
-  else if (btype == B_CD) {
-    if (c->arg_index != 2 || c->redin != NULL
-      || c->redout != NULL) {
-      errorPrint("cd takes one parameter", FPRINTF);
-      return EXEC_FAIL;
-    }
-    if (chdir(c->arguments[1]) < 0) {
-      errorPrint(NULL, PERROR);
-      return EXEC_FAIL;
-    }
-  }
-
-  else if (btype == B_EXIT) {
-    if (c->arg_index != 1 || c->redin != NULL
-      || c->redout != NULL) {
-      errorPrint("exit does not take any parameters", FPRINTF);
-      return EXEC_FAIL;
-    }
-    exit(0);
-  }
-
-  //btype == B_FG or B_ALIAS
-  else { 
-    errorPrint("fg and alias are not implemented", FPRINTF);
-    return EXEC_FAIL;
-  }
-
-  return EXEC_SUCC;
-}
+/*--------------------------------------------------------------------*/
 
 int main(int argc, char* argv[]) {
   /* TODO */
@@ -273,13 +142,16 @@ int main(int argc, char* argv[]) {
 
   char acLine[MAX_LINE_SIZE + 2];
 
+  /* opens .ishrc file from home directory if it exists and can be read.
+      redirects it to standard input stream. */
+
   char *homeDir = strdup(getenv("HOME"));
   homeDir = realloc(homeDir, strlen(homeDir) + 8);
   strcat(homeDir, "/.ishrc");
 
   FILE *fp;
   if ((fp = fopen(homeDir, "r")) == NULL) {
-    fp = stdin;
+    fp = stdin; // when .ishrc doesn't exist or is not readable
   }
   free(homeDir);
 
@@ -288,11 +160,11 @@ int main(int argc, char* argv[]) {
   while (1) {
     fprintf(stdout, "%% ");
     fflush(stdout);
-  skip:
+  start:
     if (fgets(acLine, MAX_LINE_SIZE, fp) == NULL) {
-      if (fp != stdin) {
-        fp = stdin;
-        goto skip;
+      if (fp != stdin) { // if done reading from .ishrc file
+        fp = stdin;      // redirect input back to standard input 
+        goto start;
       }
       else {
         printf("\n");
@@ -300,6 +172,7 @@ int main(int argc, char* argv[]) {
       }
     }
     if (fp != stdin) {
+      // appends nextline if it doesn't exist
       if (strchr(acLine, '\n') == NULL) {
         char* c = strchr(acLine, '\0');
         *c = '\n';
