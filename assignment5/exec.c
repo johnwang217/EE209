@@ -236,7 +236,7 @@ int execCommand (struct Command *c) {
       dup2(fileno(fp_i), STDIN_FILENO);
     }
 
-    // redirecting standard input if file name is given
+    // redirecting standard output if file name is given
     if (c->redout != NULL) {
       FILE *fp_o;
         if ((fp_o = fopen(c->redout, "w")) == NULL) {
